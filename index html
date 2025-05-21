@@ -1,0 +1,2984 @@
+// Funções utilitárias
+        function formatDate(dateString) {
+            const parts = dateString.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        function getCurrentDate() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getCurrentTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+        
+        // Funções de renderização
+        function renderDashboard() {
+            // Atualiza estatísticas
+            document.getElementById('total-clients').textContent = clients.length;
+            
+            // Conta contatos recentes (últimos 7 dias)
+            const recentContacts = countRecentContacts();
+            document.getElementById('recent-contacts-count').textContent = recentContacts;
+            
+            // Conta próximos contatos (próximos 7 dias)
+            const upcomingContacts = countUpcomingContacts();
+            document.getElementById('upcoming-contacts-count').textContent = upcomingContacts;
+            
+            // Renderiza tabela de follow-ups
+            renderFollowups();
+        }
+
+        function countRecentContacts() {
+            // Simula contagem de contatos recentes
+            return 12;
+        }
+
+        function countUpcomingContacts() {
+            // Conta próximos contatos nos próximos 7 dias
+            let count = 0;
+            
+            const today = new Date();
+            const nextWeek = new Date();
+            nextWeek.setDate(today.getDate() + 7);
+            
+            clients.forEach(client => {
+                const contactDate = new Date(client.proximoContacto);
+                if (contactDate >= today && contactDate <= nextWeek) {
+                    count++;
+                }
+            });
+            
+            return count;
+        }
+
+        function renderFollowups() {
+            const tableBody = document.getElementById('followup-table');
+            tableBody.innerHTML = '';
+            
+            // Filtra clientes com próximos contatos
+            const clientsWithContacts = clients.filter(client => client.proximoContacto);
+            
+            // Ordena por data do próximo contato
+            clientsWithContacts.sort((a, b) => {
+                return new Date(a.proximoContacto) - new Date(b.proximoContacto);
+            });
+            
+            // Renderiza cada linha da tabela
+            clientsWithContacts.forEach(client => {
+                const row = document.createElement('tr');
+                
+                const nameCell = document.createElement('td');
+                nameCell.textContent = client.empresa;
+                
+                const dateCell = document.createElement('td');
+                dateCell.textContent = formatDate(client.proximoContacto);
+                
+                const actionsCell = document.createElement('td');
+                
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'btn btn-primary';
+                viewBtn.style.marginRight = '10px';
+                viewBtn.textContent = 'Ver';
+                viewBtn.onclick = () => {
+                    currentClient = client;
+                    showTab('clientDetails');
+                };
+                
+                const callBtn = document.createElement('button');
+                callBtn.className = 'btn btn-success';
+                callBtn.innerHTML = '<span class="icon-sm">📞</span> Ligar';
+                callBtn.onclick = () => {
+                    handleCall(client.telefones[0]);
+                };
+                
+                actionsCell.appendChild(viewBtn);
+                actionsCell.appendChild(callBtn);
+                
+                row.appendChild(nameCell);
+                row.appendChild(dateCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function renderClients() {
+            const clientsGrid = document.getElementById('clients-grid');
+            clientsGrid.innerHTML = '';
+            
+            // Filtra clientes com base no termo de pesquisa
+            const filteredClients = clients.filter(client => {
+                if (searchTerm === '') return true;
+                
+                const search = searchTerm.toLowerCase();
+                return (
+                    client.empresa.toLowerCase().includes(search) ||
+                    client.grupo.toLowerCase().includes(search) ||
+                    client.insignia.toLowerCase().includes(search) ||
+                    client.localidade.toLowerCase().includes(search) ||
+                    client.setor.toLowerCase().includes(search)
+                );
+            });
+            
+            // Renderiza cada cartão de cliente
+            filteredClients.forEach(client => {
+                const card = document.createElement('div');
+                card.className = 'client-card';
+                card.onclick = () => {
+                    currentClient = client;
+                    showTab('clientDetails');
+                };
+                
+                card.innerHTML = `
+                    <div class="client-header">
+                        <div>
+                            <div class="client-title">${client.empresa}</div>
+                            <div class="client-subtitle">${client.insignia} - ${client.grupo}</div>
+                            <p class="client-subtitle" style="display: flex; align-items: center; margin-top: 5px;">
+                                <span class="icon-sm">📍</span> ${client.localidade}
+                            </p>
+                        </div>
+                        <div class="client-tag">${client.setor}</div>
+                    </div>
+                    <div class="client-footer">
+                        <div class="client-date">
+                            <span class="icon-sm">🕒</span> Último contato: ${formatDate(client.ultimoContacto)}
+                        </div>
+                        <div class="client-actions">
+                            <button class="btn-icon btn-phone" onclick="event.stopPropagation(); handleCall('${client.telefones[0]}')">
+                                📞
+                            </button>
+                            <button class="btn-icon btn-email" onclick="event.stopPropagation(); handleEmail('${client.emails[0]}')">
+                                ✉️
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                clientsGrid.appendChild(card);
+            });
+        }
+
+        function filterClients() {
+            searchTerm = document.getElementById('client-search').value;
+            renderClients();
+        }
+
+        function renderClientDetails() {
+            if (!currentClient) return;
+            
+            // Atualiza cabeçalho
+            document.getElementById('client-detail-title').textContent = 'Detalhes do Cliente';
+            document.getElementById('client-detail-name').textContent = currentClient.empresa;
+            document.getElementById('client-detail-subtitle').textContent = `${currentClient.insignia} - ${currentClient.grupo}`;
+            
+            // Atualiza informações gerais
+            document.getElementById('client-detail-setor').textContent = currentClient.setor;
+            document.getElementById('client-detail-endereco').textContent = currentClient.endereco;
+            document.getElementById('client-detail-localidade').textContent = currentClient.localidade;
+            
+            // Atualiza contatos
+            document.getElementById('client-detail-responsavel').textContent = currentClient.responsavel;
+            document.getElementById('client-detail-gerente').textContent = currentClient.gerente;
+            document.getElementById('client-detail-resp-frescos').textContent = currentClient.respFrescos;
+            document.getElementById('client-detail-resp-manutencao').textContent = currentClient.respManutencao;
+            
+            // Renderiza telefones
+            const telefonesContainer = document.getElementById('client-detail-telefones');
+            telefonesContainer.innerHTML = '';
+            
+            currentClient.telefones.forEach(telefone => {
+                const phoneItem = document.createElement('div');
+                phoneItem.className = 'contact-item phone-item';
+                phoneItem.innerHTML = `<span class="icon-sm">📞</span> ${telefone}`;
+                phoneItem.onclick = () => handleCall(telefone);
+                telefonesContainer.appendChild(phoneItem);
+            });
+            
+            // Renderiza emails
+            const emailsContainer = document.getElementById('client-detail-emails');
+            emailsContainer.innerHTML = '';
+            
+            currentClient.emails.forEach(email => {
+                const emailItem = document.createElement('div');
+                emailItem.className = 'contact-item email-item';
+                emailItem.innerHTML = `<span class="icon-sm">✉️</span> ${email}`;
+                emailItem.onclick = () => handleEmail(email);
+                emailsContainer.appendChild(emailItem);
+            });
+            
+            // Renderiza notas
+            renderClientNotes();
+            
+            // Atualiza próximo contato
+            document.getElementById('client-next-contact').textContent = formatDate(currentClient.proximoContacto);
+        }
+
+        function renderClientNotes() {
+            const notesContainer = document.getElementById('client-notes-container');
+            notesContainer.innerHTML = '';
+            
+            // Ordena notas por data (mais recentes primeiro)
+            const sortedNotes = [...currentClient.notas].sort((a, b) => {
+                return new Date(`${b.data} ${b.hora}`) - new Date(`${a.data} ${a.hora}`);
+            });
+            
+            // Renderiza cada nota
+            sortedNotes.forEach(nota => {
+                const noteItem = document.createElement('div');
+                noteItem.className = 'note-item';
+                
+                noteItem.innerHTML = `
+                    <div class="note-meta">
+                        <div class="note-date">
+                            <span class="icon-sm">📅</span> ${formatDate(nota.data)}
+                        </div>
+                        <div class="note-time">
+                            <span class="icon-sm">🕒</span> ${nota.hora}
+                        </div>
+                    </div>
+                    <div class="note-content">${nota.texto}</div>
+                `;
+                
+                notesContainer.appendChild(noteItem);
+            });
+        }
+
+        function renderCalendar() {
+            // Limpa o grid do calendário
+            const calendarGrid = document.getElementById('calendar-grid');
+            
+            // Remove os dias existentes (mantém os cabeçalhos dos dias da semana)
+            const dayHeaders = Array.from(calendarGrid.querySelectorAll('.calendar-day-name'));
+            calendarGrid.innerHTML = '';
+            
+            // Adiciona os cabeçalhos de volta
+            dayHeaders.forEach(header => {
+                calendarGrid.appendChild(header);
+            });
+            
+            // Cria o calendário para maio de 2025
+            const year = 2025;
+            const month = 4; // 0-based, então 4 = maio
+            
+            // Primeiro dia do mês
+            const firstDay = new Date(year, month, 1);
+            
+            // Dia da semana do primeiro dia (0 = domingo, 1 = segunda, etc.)
+            const firstDayOfWeek = firstDay.getDay();
+            
+            // Número de dias no mês
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            
+            // Simula hoje como sendo 15 de maio de 2025
+            const today = 15;
+            
+            // Dias com eventos (simulação)
+            const daysWithEvents = {
+                10: ['Continente - Visita'],
+                12: ['Pingo Doce - Reunião'],
+                15: ['Marisqueira Atlântico - Ligação'],
+                18: ['Pingo Doce - Seguimento'],
+                21: ['Marisqueira Atlântico - Reunião'],
+                22: ['Continente - Proposta']
+            };
+            
+            // Adiciona células vazias para os dias antes do primeiro dia do mês
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day';
+                calendarGrid.appendChild(emptyDay);
+            }
+            
+            // Adiciona os dias do mês
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day';
+                
+                // Verifica se é hoje
+                if (day === today) {
+                    dayCell.classList.add('today');
+                }
+                
+                // Adiciona o número do dia
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = day;
+                dayCell.appendChild(dayNumber);
+                
+                // Adiciona eventos, se houver
+                if (daysWithEvents[day]) {
+                    daysWithEvents[day].forEach(event => {
+                        const eventDiv = document.createElement('div');
+                        eventDiv.className = 'day-event';
+                        eventDiv.textContent = event;
+                        dayCell.appendChild(eventDiv);
+                    });
+                }
+                
+                calendarGrid.appendChild(dayCell);
+            }
+            
+            // Renderiza próximos contatos
+            renderUpcomingContacts();
+        }
+
+        function renderUpcomingContacts() {
+            const upcomingContainer = document.getElementById('upcoming-contacts');
+            upcomingContainer.innerHTML = '';
+            
+            // Filtra e ordena clientes com próximos contatos
+            const upcomingClients = clients
+                .filter(client => client.proximoContacto)
+                .sort((a, b) => new Date(a.proximoContacto) - new Date(b.proximoContacto));
+            
+            // Renderiza cada contato próximo
+            upcomingClients.forEach(client => {
+                const contactItem = document.createElement('div');
+                contactItem.className = 'card';
+                contactItem.style.padding = '15px';
+                contactItem.style.marginBottom = '10px';
+                
+                contactItem.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 16px;">${client.empresa}</div>
+                            <div style="color: #666; margin-top: 5px;">
+                                <span class="icon-sm">📅</span> ${formatDate(client.proximoContacto)}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" style="margin-right: 10px;" onclick="viewClient(${client.id})">Ver</button>
+                            <button class="btn btn-success" onclick="handleCall('${client.telefones[0]}')">
+                                <span class="icon-sm">📞</span> Ligar
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                upcomingContainer.appendChild(contactItem);
+            });
+        }
+
+        function renderSettings() {
+            // Carrega as configurações atuais nos campos
+            document.getElementById('settings-name').value = userSettings.name;
+            document.getElementById('settings-email').value = userSettings.email;
+            document.getElementById('settings-phone').value = userSettings.phone;
+            document.getElementById('settings-role').value = userSettings.role;
+            document.getElementById('settings-address').value = userSettings.address;
+            
+            // Avatar
+            if (userSettings.avatar) {
+                document.getElementById('user-avatar').innerHTML = `<img src="${userSettings.avatar}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+            }
+        }
+
+        // Funções de ação
+        function handleCall(number) {
+            // Em um aplicativo real, isso abriria o telefone ou usaria uma API de chamada
+            alert(`Simulando chamada para: ${number}`);
+        }
+
+        function handleEmail(email) {
+            // Em um aplicativo real, isso abriria o cliente de email
+            alert(`Simulando envio de email para: ${email}`);
+        }
+
+        function viewClient(clientId) {
+            currentClient = clients.find(client => client.id === clientId);
+            showTab('clientDetails');
+        }
+
+        function saveSettings() {
+            // Salva as configurações localmente
+            userSettings.name = document.getElementById('settings-name').value;
+            userSettings.email = document.getElementById('settings-email').value;
+            userSettings.phone = document.getElementById('settings-phone').value;
+            userSettings.role = document.getElementById('settings-role').value;
+            userSettings.address = document.getElementById('settings-address').value;
+            userSettings.lastModified = new Date().toISOString();
+            
+            // Adiciona à fila de mudanças para sincronização
+            addChangeToQueue({
+                type: 'updateSettings',
+                data: userSettings
+            });
+            
+            // Mostra mensagem de sucesso
+            showSyncBanner('Configurações salvas com sucesso', 'success');
+        }
+
+        function handleAvatarUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    userSettings.avatar = e.target.result;
+                    userSettings.lastModified = new Date().toISOString();
+                    
+                    document.getElementById('user-avatar').innerHTML = `<img src="${e.target.result}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                    
+                    // Adiciona à fila de mudanças para sincronização
+                    addChangeToQueue({
+                        type: 'updateSettings',
+                        data: userSettings
+                    });
+                    
+                    showSyncBanner('Avatar atualizado com sucesso', 'success');
+                };
+                
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function handleFileImport(input) {
+            if (input.files && input.files[0]) {
+                // Em um aplicativo real, isso processaria o arquivo Excel
+                alert('Importação de arquivo Excel simulada.\nEm um aplicativo real, os dados seriam processados e importados.');
+            }
+        }
+
+        function exportToExcel() {
+            // Em um aplicativo real, isso exportaria os dados para Excel
+            alert('Exportação para Excel simulada.\nEm um aplicativo real, os dados seriam exportados para um arquivo Excel.');
+        }
+
+        // Modais
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'flex';
+                
+                // Se for o modal de adicionar nota, preenche a data e hora atual
+                if (modalId === 'add-note-modal') {
+                    document.getElementById('note-date').value = getCurrentDate();
+                    document.getElementById('note-time').value = getCurrentTime();
+                }
+            }
+        }
+
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function showAddClientModal() {
+            // Limpa os campos do formulário
+            document.getElementById('client-grupo').value = '';
+            document.getElementById('client-insignia').value = '';
+            document.getElementById('client-empresa').value = '';
+            document.getElementById('client-setor').value = '';
+            document.getElementById('client-responsavel').value = '';
+            document.getElementById('client-gerente').value = '';
+            document.getElementById('client-resp-frescos').value = '';
+            document.getElementById('client-resp-manutencao').value = '';
+            document.getElementById('client-endereco').value = '';
+            document.getElementById('client-localidade').value = '';
+            document.getElementById('client-telefone').value = '';
+            document.getElementById('client-email').value = '';
+            
+            // Mostra o modal
+            showModal('add-client-modal');
+        }
+
+        function addNewClient() {
+            // Verifica se os campos obrigatórios estão preenchidos
+            const empresa = document.getElementById('client-empresa').value;
+            if (!empresa) {
+                alert('Por favor, preencha o nome da empresa.');
+                return;
+            }
+            
+            // Cria um novo cliente
+            const newClient = {
+                grupo: document.getElementById('client-grupo').value,
+                insignia: document.getElementById('client-insignia').value,
+                empresa: empresa,
+                responsavel: document.getElementById('client-responsavel').value,
+                gerente: document.getElementById('client-gerente').value,
+                respFrescos: document.getElementById('client-resp-frescos').value,
+                respManutencao: document.getElementById('client-resp-manutencao').value,
+                endereco: document.getElementById('client-endereco').value,
+                localidade: document.getElementById('client-localidade').value,
+                telefones: [document.getElementById('client-telefone').value],
+                emails: [document.getElementById('client-email').value],
+                setor: document.getElementById('client-setor').value,
+                ultimoContacto: getCurrentDate(),
+                proximoContacto: '',
+                notas: [],
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString()
+            };
+            
+            // Adiciona o novo cliente localmente
+            clients.push(newClient);
+            
+            // Adiciona à fila de mudanças para sincronização
+            addChangeToQueue({
+                type: 'addClient',
+                data: newClient
+            });
+            
+            // Fecha o modal
+            hideModal('add-client-modal');
+            
+            // Atualiza a visualização
+            renderClients();
+            
+            // Mostra mensagem de sucesso
+            showSyncBanner('Cliente adicionado com sucesso', 'success');
+        }
+
+        function showAddNoteModal() {
+            // Cria o modal se não existir
+            if (!document.getElementById('add-note-modal')) {
+                const modalOverlay = document.createElement('div');
+                modalOverlay.className = 'modal-overlay';
+                modalOverlay.id = 'add-note-modal';
+                
+                modalOverlay.innerHTML = `
+                    <div class="modal">
+                        <div class="modal-header">
+                            <div class="modal-title">Adicionar Novo Contato</div>
+                            <button class="modal-close" onclick="hideModal('add-note-modal')">&times;</button>
+                        </div>
+                        
+                        <div class="modal-form">
+                            <div class="form-group form-group-full">
+                                <label for="note-date">Data</label>
+                                <input type="date" id="note-date" value="${getCurrentDate()}">
+                            </div>
+                            
+                            <div class="form-group form-group-full">
+                                <label for="note-time">Hora</label>
+                                <input type="time" id="note-time" value="${getCurrentTime()}">
+                            </div>
+                            
+                            <div class="form-group form-group-full">
+                                <label for="note-text">Detalhes do Contato</label>
+                                <textarea id="note-text" rows="4" placeholder="Descreva os detalhes do contato..."></textarea>
+                            </div>
+                            
+                            <div class="form-group form-group-full">
+                                <label>Agendar Próximo Contato</label>
+                                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                    <button class="btn" onclick="setNextContact(7)">1 Semana</button>
+                                    <button class="btn" onclick="setNextContact(15)">15 Dias</button>
+                                    <button class="btn" onclick="setNextContact(30)">1 Mês</button>
+                                    <button class="btn" onclick="showDatePicker()">Data Específica</button>
+                                </div>
+                            </div>
+                            
+                            <div id="date-picker-container" class="form-group form-group-full" style="display: none;">
+                                <label for="next-contact-date">Data do Próximo Contato</label>
+                                <input type="date" id="next-contact-date">
+                            </div>
+                            
+                            <div class="form-group form-group-full modal-footer">
+                                <button class="btn btn-primary" onclick="addNewNote()">
+                                    <span class="icon-sm">💾</span> Salvar Contato
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modalOverlay);
+            }
+            
+            // Mostra o modal
+            showModal('add-note-modal');
+        }
+
+        function setNextContact(days) {
+            const today = new Date();
+            const nextDate = new Date();
+            nextDate.setDate(today.getDate() + days);
+            
+            const year = nextDate.getFullYear();
+            const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+            const day = String(nextDate.getDate()).padStart(2, '0');
+            
+            nextContactDate = `${year}-${month}-${day}`;
+            
+            // Mostra a data selecionada
+            const datePickerContainer = document.getElementById('date-picker-container');
+            if (datePickerContainer) {
+                datePickerContainer.style.display = 'block';
+                document.getElementById('next-contact-date').value = nextContactDate;
+            }
+        }
+
+        function showDatePicker() {
+            const datePickerContainer = document.getElementById('date-picker-container');
+            if (datePickerContainer) {
+                datePickerContainer.style.display = 'block';
+            }
+        }
+
+        function addNewNote() {
+            if (!currentClient) return;
+            
+            // Obtem os valores dos campos
+            const date = document.getElementById('note-date').value;
+            const time = document.getElementById('note-time').value;
+            const text = document.getElementById('note-text').value;
+            
+            // Verifica se os campos estão preenchidos
+            if (!date || !time || !text) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            // Cria a nova nota
+            const newNote = {
+                data: date,
+                hora: time,
+                texto: text,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Adiciona a nova nota localmente
+            currentClient.notas.unshift(newNote);
+            
+            // Atualiza a data do último contato
+            currentClient.ultimoContacto = date;
+            currentClient.lastModified = new Date().toISOString();
+            
+            // Atualiza a data do próximo contato, se definida
+            if (nextContactDate) {
+                currentClient.proximoContacto = nextContactDate;
+                document.getElementById('client-next-contact').textContent = formatDate(nextContactDate);
+            } else if (document.getElementById('next-contact-date').value) {
+                currentClient.proximoContacto = document.getElementById('next-contact-date').value;
+                document.getElementById('client-next-contact').textContent = formatDate(document.getElementById('next-contact-date').value);
+            }
+            
+            // Adiciona à fila de mudanças para sincronização
+            addChangeToQueue({
+                type: 'addNote',
+                clientId: currentClient.id,
+                data: newNote
+            });
+            
+            // Também atualiza o cliente para refletir as mudanças no próximo contato
+            addChangeToQueue({
+                type: 'updateClient',
+                data: currentClient
+            });
+            
+            // Fecha o modal
+            hideModal('add-note-modal');
+            
+            // Atualiza a visualização
+            renderClientNotes();
+            
+            // Mostra mensagem de sucesso
+            showSyncBanner('Contato adicionado com sucesso', 'success');
+        }
+
+        function showSetNextContactModal() {
+            if (!currentClient) return;
+            
+            // Implementação simplificada
+            const today = new Date();
+            
+            // Adiciona 7 dias à data atual
+            const nextWeek = new Date();
+            nextWeek.setDate(today.getDate() + 7);
+            
+            // Formata a data
+            const year = nextWeek.getFullYear();
+            const month = String(nextWeek.getMonth() + 1).padStart(2, '0');
+            const day = String(nextWeek.getDate()).padStart(2, '0');
+            const nextContactDate = `${year}-${month}-${day}`;
+            
+            // Atualiza o próximo contato
+            currentClient.proximoContacto = nextContactDate;
+            currentClient.lastModified = new Date().toISOString();
+            
+            // Adiciona à fila de mudanças para sincronização
+            addChangeToQueue({
+                type: 'updateClient',
+                data: currentClient
+            });
+            
+            // Atualiza a visualização
+            document.getElementById('client-next-contact').textContent = formatDate(nextContactDate);
+            
+            // Mostra mensagem de sucesso
+            showSyncBanner('Próximo contato agendado com sucesso', 'success');
+        }
+
+        function showEditClientModal() {
+            // Implementação simplificada
+            alert('Edição de cliente simulada.\nEm um aplicativo real, um formulário seria aberto para editar os dados do cliente.');
+        }
+                
+        // Variáveis globais
+        let currentClient = null;
+        let searchTerm = "";
+        let nextContactDate = null;
+        let userSettings = {}; // Inicializa vazio, será carregado do servidor
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializa o app
+            initializeApp();
+        });
+    </script>
+</body>
+</html>        // Dados locais
+        let clients = [
+            {
+                id: 1,
+                grupo: "Grupo Sonae",
+                insignia: "Continente",
+                empresa: "Modelo Continente Hipermercados, S.A.",
+                responsavel: "Ana Santos",
+                gerente: "Manuel Silva",
+                respFrescos: "Joana Oliveira",
+                respManutencao: "António Costa",
+                endereco: "Rua dos Peixes Frescos, 123, Lisboa",
+                localidade: "Lisboa",
+                telefones: ["+351 219876543", "+351 919876543"],
+                emails: ["ana.santos@exemplo.pt", "frescos@exemplo.pt"],
+                setor: "Supermercados",
+                ultimoContacto: "2025-05-10",
+                proximoContacto: "2025-05-22",
+                notas: [
+                    { data: "2025-05-10", hora: "14:30", texto: "Cliente interessado em expandir seção de peixe fresco." },
+                    { data: "2025-04-22", hora: "10:15", texto: "Reunião sobre novos produtos de marisco." }
+                ]
+            },
+            {
+                id: 2,
+                grupo: "Grupo Jerónimo Martins",
+                insignia: "Pingo Doce",
+                empresa: "Pingo Doce Distribuição Alimentar, S.A.",
+                responsavel: "Pedro Gomes",
+                gerente: "Rui Almeida",
+                respFrescos: "Sofia Martins",
+                respManutencao: "José Rodrigues",
+                endereco: "Av. das Frutas, 45, Porto",
+                localidade: "Porto",
+                telefones: ["+351 229876123", "+351 929876123"],
+                emails: ["pedro.gomes@exemplo.pt", "frescos.norte@exemplo.pt"],
+                setor: "Supermercados",
+                ultimoContacto: "2025-05-12",
+                proximoContacto: "2025-05-18",
+                notas: [
+                    { data: "2025-05-12", hora: "09:45", texto: "Cliente solicitou cotação para fornecimento semanal." },
+                    { data: "2025-05-01", hora: "16:00", texto: "Apresentação de nova linha de produtos orgânicos." }
+                ]
+            },
+            {
+                id: 3,
+                grupo: "Independente",
+                insignia: "Marisqueira Atlântico",
+                empresa: "Marisqueira Atlântico, Lda.",
+                responsavel: "Mariana Costa",
+                gerente: "Mariana Costa",
+                respFrescos: "Tiago Nunes",
+                respManutencao: "Fernando Sousa",
+                endereco: "Rua do Mar, 78, Ericeira",
+                localidade: "Ericeira",
+                telefones: ["+351 261123456", "+351 961123456"],
+                emails: ["mariana@marisqueiraatlantico.pt", "compras@marisqueiraatlantico.pt"],
+                setor: "Restaurantes",
+                ultimoContacto: "2025-05-14",
+                proximoContacto: "2025-05-21",
+                notas: [
+                    { data: "2025-05-14", hora: "13:20", texto: "Cliente procura fornecedor regular de camarão." },
+                    { data: "2025-04-30", hora: "11:30", texto: "Discussão sobre preços sazonais e disponibilidade." }
+                ]
+            }
+        ];
+
+        function initializeApp() {
+            // Verifique se o administrador principal já existe, caso contrário, crie-o
+            createAdminIfNeeded();
+            
+            // Verifica se o usuário está logado
+            auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    // Usuário está logado
+                    document.getElementById('login-container').style.display = 'none';
+                    document.getElementById('register-container').style.display = 'none';
+                    document.getElementById('main-container').style.display = 'flex';
+                    
+                    // Verifica se é administrador
+                    checkIsAdmin(user.uid);
+                    
+                    // Carrega os dados do usuário
+                    loadUserSettings(user.uid);
+                    
+                    // Carrega os clientes do Firestore
+                    loadClientsFromFirestore();
+                    
+                    // Mostra a tela inicial
+                    showTab('dashboard');
+                    
+                    // Inicia o monitoramento de conexão
+                    monitorConnection();
+                } else {
+                    // Usuário não está logado
+                    document.getElementById('login-container').style.display = 'flex';
+                    document.getElementById('register-container').style.display = 'none';
+                    document.getElementById('main-container').style.display = 'none';
+                }
+            });
+        }
+        
+        function createAdminIfNeeded() {
+            // Verifica se o administrador já existe
+            auth.fetchSignInMethodsForEmail(ADMIN_EMAIL)
+                .then(methods => {
+                    if (methods.length === 0) {
+                        // Cria o administrador principal
+                        auth.createUserWithEmailAndPassword(ADMIN_EMAIL, 'cadeiras2020')
+                            .then((userCredential) => {
+                                const user = userCredential.user;
+                                
+                                // Define como administrador
+                                db.collection('users').doc(user.uid).set({
+                                    name: 'Administrador AQUALIFE',
+                                    email: ADMIN_EMAIL,
+                                    role: USER_ROLES.ADMIN,
+                                    status: USER_STATUS.ACTIVE,
+                                    isAdmin: true,
+                                    phone: '',
+                                    address: '',
+                                    avatar: null,
+                                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            })
+                            .catch(error => {
+                                console.error('Erro ao criar administrador:', error);
+                            });
+                    }
+                });
+        }
+        
+        function checkIsAdmin(userId) {
+            db.collection('users').doc(userId).get()
+                .then(doc => {
+                    if (doc.exists && (doc.data().role === USER_ROLES.ADMIN || doc.data().isAdmin)) {
+                        // Mostra a aba de administração
+                        document.getElementById('nav-admin').style.display = 'block';
+                    } else {
+                        // Esconde a aba de administração
+                        document.getElementById('nav-admin').style.display = 'none';
+                    }
+                });
+        }
+        
+        function loginUser() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            // Valida os campos
+            if (!email || !password) {
+                document.getElementById('login-error').textContent = 'Por favor, preencha todos os campos.';
+                document.getElementById('login-error').style.display = 'block';
+                return;
+            }
+            
+            // Faz login com email e senha
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Login bem-sucedido
+                    document.getElementById('login-error').style.display = 'none';
+                    
+                    // Verifica o status do usuário
+                    const userId = userCredential.user.uid;
+                    db.collection('users').doc(userId).get()
+                        .then(doc => {
+                            if (doc.exists) {
+                                const userData = doc.data();
+                                if (userData.status === USER_STATUS.PENDING) {
+                                    // Usuário pendente, faz logout
+                                    auth.signOut();
+                                    document.getElementById('login-error').textContent = 'Sua conta está pendente de aprovação pelo administrador.';
+                                    document.getElementById('login-error').style.display = 'block';
+                                } else if (userData.status === USER_STATUS.SUSPENDED) {
+                                    // Usuário suspenso, faz logout
+                                    auth.signOut();
+                                    document.getElementById('login-error').textContent = 'Sua conta foi suspensa. Entre em contato com o administrador.';
+                                    document.getElementById('login-error').style.display = 'block';
+                                }
+                            }
+                        });
+                })
+                .catch((error) => {
+                    // Erro no login
+                    let errorMessage = 'Erro ao fazer login. Verifique suas credenciais.';
+                    if (error.code === 'auth/user-not-found') {
+                        errorMessage = 'Usuário não encontrado.';
+                    } else if (error.code === 'auth/wrong-password') {
+                        errorMessage = 'Senha incorreta.';
+                    }
+                    
+                    document.getElementById('login-error').textContent = errorMessage;
+                    document.getElementById('login-error').style.display = 'block';
+                });
+        }
+        
+        function registerUser() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const passwordConfirm = document.getElementById('register-password-confirm').value;
+            
+            // Valida os campos
+            if (!name || !email || !password || !passwordConfirm) {
+                document.getElementById('register-error').textContent = 'Por favor, preencha todos os campos.';
+                document.getElementById('register-error').style.display = 'block';
+                return;
+            }
+            
+            // Valida a senha
+            if (password !== passwordConfirm) {
+                document.getElementById('register-error').textContent = 'As senhas não coincidem.';
+                document.getElementById('register-error').style.display = 'block';
+                return;
+            }
+            
+            // Cria o usuário com email e senha
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Registro bem-sucedido
+                    const user = userCredential.user;
+                    
+                    // Salva os dados do usuário no Firestore
+                    db.collection('users').doc(user.uid).set({
+                        name: name,
+                        email: email,
+                        role: USER_ROLES.USER,
+                        status: USER_STATUS.PENDING,
+                        phone: '',
+                        address: '',
+                        avatar: null,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    })
+                    .then(() => {
+                        document.getElementById('register-error').style.display = 'none';
+                        
+                        // Faz logout para que o administrador aprove o usuário
+                        auth.signOut()
+                            .then(() => {
+                                alert('Seu registro foi concluído com sucesso! Aguarde a aprovação do administrador para acessar o sistema.');
+                                showLoginForm();
+                            });
+                    })
+                    .catch((error) => {
+                        console.error('Erro ao salvar dados do usuário:', error);
+                    });
+                })
+                .catch((error) => {
+                    // Erro no registro
+                    let errorMessage = 'Erro ao criar conta.';
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMessage = 'Este email já está em uso.';
+                    } else if (error.code === 'auth/weak-password') {
+                        errorMessage = 'Senha muito fraca. Use pelo menos 6 caracteres.';
+                    }
+                    
+                    document.getElementById('register-error').textContent = errorMessage;
+                    document.getElementById('register-error').style.display = 'block';
+                });
+        }
+        
+        function logoutUser() {
+            auth.signOut()
+                .then(() => {
+                    // Logout bem-sucedido
+                    // A mudança de tela será tratada pelo listener onAuthStateChanged
+                })
+                .catch((error) => {
+                    console.error('Erro ao fazer logout:', error);
+                });
+        }
+        
+        function showLoginForm() {
+            document.getElementById('login-container').style.display = 'flex';
+            document.getElementById('register-container').style.display = 'none';
+        }
+        
+        function showRegisterForm() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('register-container').style.display = 'flex';
+        }
+        
+        function loadUserSettings(userId) {
+            db.collection('users').doc(userId).get()
+                .then((doc) => {
+                    if (doc.exists) {
+                        userSettings = doc.data();
+                        
+                        // Se estiver na aba de configurações, atualiza os campos
+                        if (document.getElementById('settings-name')) {
+                            document.getElementById('settings-name').value = userSettings.name || '';
+                            document.getElementById('settings-email').value = userSettings.email || '';
+                            document.getElementById('settings-phone').value = userSettings.phone || '';
+                            document.getElementById('settings-role').value = userSettings.role || '';
+                            document.getElementById('settings-address').value = userSettings.address || '';
+                            
+                            // Avatar
+                            if (userSettings.avatar) {
+                                document.getElementById('user-avatar').innerHTML = `<img src="${userSettings.avatar}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                            }
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error('Erro ao carregar configurações do usuário:', error);
+                });
+        }
+        
+        function changePassword() {
+            const currentPassword = document.getElementById('settings-current-password').value;
+            const newPassword = document.getElementById('settings-new-password').value;
+            const confirmPassword = document.getElementById('settings-confirm-password').value;
+            
+            // Valida os campos
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            // Verifica se as senhas coincidem
+            if (newPassword !== confirmPassword) {
+                alert('A nova senha e a confirmação não coincidem.');
+                return;
+            }
+            
+            // Reautentica o usuário
+            const user = auth.currentUser;
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+            
+            user.reauthenticateWithCredential(credential)
+                .then(() => {
+                    // Atualiza a senha
+                    return user.updatePassword(newPassword);
+                })
+                .then(() => {
+                    alert('Senha alterada com sucesso!');
+                    document.getElementById('settings-current-password').value = '';
+                    document.getElementById('settings-new-password').value = '';
+                    document.getElementById('settings-confirm-password').value = '';
+                })
+                .catch((error) => {
+                    console.error('Erro ao alterar senha:', error);
+                    
+                    let errorMessage = 'Erro ao alterar senha.';
+                    if (error.code === 'auth/wrong-password') {
+                        errorMessage = 'Senha atual incorreta.';
+                    } else if (error.code === 'auth/weak-password') {
+                        errorMessage = 'Senha muito fraca. Use pelo menos 6 caracteres.';
+                    }
+                    
+                    alert(errorMessage);
+                });
+        }
+        
+        // Sistema de sincronização
+        let isOnline = true;
+        let pendingChanges = [];
+        
+        function monitorConnection() {
+            // Monitora o status de conexão
+            const connectedRef = firebase.database().ref('.info/connected');
+            connectedRef.on('value', (snap) => {
+                isOnline = snap.val() === true;
+                updateConnectionStatus();
+            });
+        }
+        
+        function updateConnectionStatus() {
+            const statusEl = document.getElementById('sync-status');
+            const iconEl = document.getElementById('connection-icon');
+            const textEl = document.getElementById('connection-text');
+            
+            if (isOnline) {
+                statusEl.className = 'sync-status online';
+                iconEl.textContent = '✅';
+                textEl.textContent = 'Online - Dados sincronizados';
+                
+                // Processa mudanças pendentes
+                processPendingChanges();
+            } else {
+                statusEl.className = 'sync-status offline';
+                iconEl.textContent = '⚠️';
+                textEl.textContent = 'Offline - Alterações serão sincronizadas quando houver conexão';
+            }
+        }
+        
+        function processPendingChanges() {
+            if (pendingChanges.length > 0) {
+                showSyncBanner('Sincronizando dados...', 'syncing');
+                
+                const promises = pendingChanges.map(change => {
+                    return processChange(change);
+                });
+                
+                Promise.all(promises)
+                    .then(() => {
+                        pendingChanges = [];
+                        showSyncBanner('Sincronização completa', 'success');
+                    })
+                    .catch(error => {
+                        console.error('Erro ao sincronizar dados:', error);
+                        showSyncBanner('Erro ao sincronizar dados', 'error');
+                    });
+            }
+        }
+        
+        function processChange(change) {
+            if (change.type === 'addClient') {
+                return addClientToFirestore(change.data);
+            } else if (change.type === 'updateClient') {
+                return updateClientInFirestore(change.data);
+            } else if (change.type === 'addNote') {
+                return addNoteToFirestore(change.clientId, change.data);
+            } else if (change.type === 'updateSettings') {
+                return updateUserSettings(change.data);
+            }
+            
+            return Promise.resolve();
+        }
+        
+        function showSyncBanner(message, type) {
+            const banner = document.getElementById('sync-banner');
+            banner.textContent = message;
+            banner.className = 'sync-banner active';
+            
+            if (type === 'error') {
+                banner.classList.add('error');
+            } else if (type === 'syncing') {
+                banner.classList.add('syncing');
+            }
+            
+            setTimeout(() => {
+                banner.classList.remove('active');
+            }, 3000);
+        }
+        
+        function addChangeToQueue(change) {
+            pendingChanges.push(change);
+            
+            if (isOnline) {
+                processPendingChanges();
+            } else {
+                showSyncBanner('Alterações salvas offline', 'syncing');
+            }
+        }
+        
+        // Operações no Firestore
+        function loadClientsFromFirestore() {
+            const userId = auth.currentUser.uid;
+            
+            db.collection('users').doc(userId).collection('clients')
+                .orderBy('empresa')
+                .get()
+                .then((querySnapshot) => {
+                    clients = [];
+                    
+                    querySnapshot.forEach((doc) => {
+                        const client = doc.data();
+                        client.id = doc.id;
+                        clients.push(client);
+                    });
+                    
+                    // Atualiza a visualização
+                    const currentTab = document.querySelector('.nav-item.active').id;
+                    if (currentTab === 'nav-dashboard') {
+                        renderDashboard();
+                    } else if (currentTab === 'nav-clients') {
+                        renderClients();
+                    } else if (currentTab === 'nav-calendar') {
+                        renderCalendar();
+                    }
+                })
+                .catch((error) => {
+                    console.error('Erro ao carregar clientes:', error);
+                    showSyncBanner('Erro ao carregar clientes', 'error');
+                });
+        }
+        
+        function addClientToFirestore(client) {
+            const userId = auth.currentUser.uid;
+            
+            return db.collection('users').doc(userId).collection('clients').add(client)
+                .then((docRef) => {
+                    client.id = docRef.id;
+                    return client;
+                });
+        }
+        
+        function updateClientInFirestore(client) {
+            const userId = auth.currentUser.uid;
+            
+            return db.collection('users').doc(userId).collection('clients').doc(client.id).update(client);
+        }
+        
+        function addNoteToFirestore(clientId, note) {
+            const userId = auth.currentUser.uid;
+            
+            return db.collection('users').doc(userId).collection('clients').doc(clientId)
+                .update({
+                    notas: firebase.firestore.FieldValue.arrayUnion(note),
+                    ultimoContacto: note.data
+                });
+        }
+        
+        function updateUserSettings(settings) {
+            const userId = auth.currentUser.uid;
+            
+            return db.collection('users').doc(userId).update(settings);
+        }
+        
+        // Funções de administração
+        function showTab(tabName) {
+            // Esconde todas as abas
+            document.getElementById('dashboard-tab').classList.add('tab-hidden');
+            document.getElementById('clients-tab').classList.add('tab-hidden');
+            document.getElementById('client-details-tab').classList.add('tab-hidden');
+            document.getElementById('calendar-tab').classList.add('tab-hidden');
+            document.getElementById('settings-tab').classList.add('tab-hidden');
+            document.getElementById('admin-tab').classList.add('tab-hidden');
+            
+            // Remove a classe 'active' de todos os itens de navegação
+            document.getElementById('nav-dashboard').classList.remove('active');
+            document.getElementById('nav-clients').classList.remove('active');
+            document.getElementById('nav-calendar').classList.remove('active');
+            document.getElementById('nav-settings').classList.remove('active');
+            if (document.getElementById('nav-admin')) {
+                document.getElementById('nav-admin').classList.remove('active');
+            }
+            
+            // Mostra a aba selecionada
+            if (tabName === 'dashboard') {
+                document.getElementById('dashboard-tab').classList.remove('tab-hidden');
+                document.getElementById('nav-dashboard').classList.add('active');
+                renderDashboard();
+            } else if (tabName === 'clients') {
+                document.getElementById('clients-tab').classList.remove('tab-hidden');
+                document.getElementById('nav-clients').classList.add('active');
+                renderClients();
+            } else if (tabName === 'clientDetails') {
+                document.getElementById('client-details-tab').classList.remove('tab-hidden');
+                renderClientDetails();
+            } else if (tabName === 'calendar') {
+                document.getElementById('calendar-tab').classList.remove('tab-hidden');
+                document.getElementById('nav-calendar').classList.add('active');
+                renderCalendar();
+            } else if (tabName === 'settings') {
+                document.getElementById('settings-tab').classList.remove('tab-hidden');
+                document.getElementById('nav-settings').classList.add('active');
+                renderSettings();
+            } else if (tabName === 'admin') {
+                document.getElementById('admin-tab').classList.remove('tab-hidden');
+                document.getElementById('nav-admin').classList.add('active');
+                renderAdminPanel();
+            }
+        }
+        
+        function renderAdminPanel() {
+            // Carrega a lista de usuários
+            loadUsers();
+        }
+        
+        function loadUsers() {
+            const userList = document.getElementById('user-list');
+            userList.innerHTML = '';
+            
+            db.collection('users').get()
+                .then(querySnapshot => {
+                    querySnapshot.forEach(doc => {
+                        const user = doc.data();
+                        user.id = doc.id;
+                        
+                        const userItem = document.createElement('div');
+                        userItem.className = 'user-item';
+                        
+                        // Define a classe do status
+                        let statusClass = '';
+                        let statusText = '';
+                        
+                        if (user.status === USER_STATUS.PENDING) {
+                            statusClass = 'status-pending';
+                            statusText = 'Pendente';
+                        } else if (user.status === USER_STATUS.ACTIVE) {
+                            statusClass = 'status-active';
+                            statusText = 'Ativo';
+                        } else if (user.status === USER_STATUS.SUSPENDED) {
+                            statusClass = 'status-suspended';
+                            statusText = 'Suspenso';
+                        }
+                        
+                        // Converte o role para texto
+                        let roleText = '';
+                        if (user.role === USER_ROLES.ADMIN) {
+                            roleText = 'Administrador';
+                        } else if (user.role === USER_ROLES.MANAGER) {
+                            roleText = 'Gerente';
+                        } else {
+                            roleText = 'Usuário';
+                        }
+                        
+                        userItem.innerHTML = `
+                            <div class="user-info">
+                                <div class="user-name">${user.name}</div>
+                                <div class="user-email">${user.email}</div>
+                                <div>
+                                    <span style="color: #666; font-size: 14px;">Função: ${roleText}</span>
+                                    <span class="user-status ${statusClass}" style="margin-left: 10px;">${statusText}</span>
+                                </div>
+                            </div>
+                            <div class="user-actions">
+                                <button class="btn btn-primary" onclick="showEditUserModal('${user.id}')">
+                                    <span class="icon-sm">✏️</span> Editar
+                                </button>
+                                <button class="btn ${user.status === USER_STATUS.ACTIVE ? 'btn-error' : 'btn-success'}" 
+                                        onclick="${user.status === USER_STATUS.ACTIVE ? 'suspendUser' : 'activateUser'}('${user.id}')">
+                                    ${user.status === USER_STATUS.ACTIVE ? 'Suspender' : 'Ativar'}
+                                </button>
+                            </div>
+                        `;
+                        
+                        userList.appendChild(userItem);
+                    });
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar usuários:', error);
+                });
+        }
+        
+        function showAddUserModal() {
+            // Limpa os campos
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-email').value = '';
+            document.getElementById('new-user-password').value = '';
+            document.getElementById('new-user-role').value = USER_ROLES.USER;
+            
+            // Mostra o modal
+            showModal('add-user-modal');
+        }
+        
+        function addNewUser() {
+            const name = document.getElementById('new-user-name').value;
+            const email = document.getElementById('new-user-email').value;
+            const password = document.getElementById('new-user-password').value;
+            const role = document.getElementById('new-user-role').value;
+            
+            // Valida os campos
+            if (!name || !email || !password) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            // Cria o usuário
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(userCredential => {
+                    const user = userCredential.user;
+                    
+                    // Salva os dados do usuário
+                    return db.collection('users').doc(user.uid).set({
+                        name: name,
+                        email: email,
+                        role: role,
+                        status: USER_STATUS.ACTIVE,
+                        phone: '',
+                        address: '',
+                        avatar: null,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdBy: auth.currentUser.uid
+                    });
+                })
+                .then(() => {
+                    hideModal('add-user-modal');
+                    showSyncBanner('Usuário adicionado com sucesso', 'success');
+                    loadUsers();
+                })
+                .catch(error => {
+                    console.error('Erro ao adicionar usuário:', error);
+                    let errorMessage = 'Erro ao adicionar usuário.';
+                    
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMessage = 'Este email já está em uso.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'Email inválido.';
+                    } else if (error.code === 'auth/weak-password') {
+                        errorMessage = 'Senha muito fraca. Use pelo menos 6 caracteres.';
+                    }
+                    
+                    alert(errorMessage);
+                });
+        }
+        
+        function showEditUserModal(userId) {
+            // Limpa os campos
+            document.getElementById('edit-user-id').value = userId;
+            
+            // Carrega os dados do usuário
+            db.collection('users').doc(userId).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const user = doc.data();
+                        
+                        document.getElementById('edit-user-name').value = user.name || '';
+                        document.getElementById('edit-user-email').value = user.email || '';
+                        document.getElementById('edit-user-role').value = user.role || USER_ROLES.USER;
+                        document.getElementById('edit-user-status').value = user.status || USER_STATUS.PENDING;
+                        document.getElementById('edit-user-password').value = '';
+                        
+                        // Mostra o modal
+                        showModal('edit-user-modal');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar dados do usuário:', error);
+                });
+        }
+        
+        function updateUser() {
+            const userId = document.getElementById('edit-user-id').value;
+            const name = document.getElementById('edit-user-name').value;
+            const role = document.getElementById('edit-user-role').value;
+            const status = document.getElementById('edit-user-status').value;
+            const password = document.getElementById('edit-user-password').value;
+            
+            // Valida os campos
+            if (!name) {
+                alert('Por favor, preencha o nome.');
+                return;
+            }
+            
+            // Atualiza os dados do usuário no Firestore
+            db.collection('users').doc(userId).update({
+                name: name,
+                role: role,
+                status: status,
+                lastModified: firebase.firestore.FieldValue.serverTimestamp(),
+                modifiedBy: auth.currentUser.uid
+            })
+            .then(() => {
+                // Se uma nova senha foi fornecida, atualiza-a
+                if (password) {
+                    // Obtém o email do usuário
+                    return db.collection('users').doc(userId).get()
+                        .then(doc => {
+                            if (doc.exists) {
+                                const userEmail = doc.data().email;
+                                
+                                // Cria uma referência administrativa para o usuário
+                                const adminAuth = firebase.auth();
+                                
+                                // Atualiza a senha
+                                return adminAuth.sendPasswordResetEmail(userEmail);
+                            }
+                        });
+                }
+            })
+            .then(() => {
+                hideModal('edit-user-modal');
+                showSyncBanner('Usuário atualizado com sucesso', 'success');
+                loadUsers();
+            })
+            .catch(error => {
+                console.error('Erro ao atualizar usuário:', error);
+                alert('Erro ao atualizar usuário: ' + error.message);
+            });
+        }
+        
+        function activateUser(userId) {
+            db.collection('users').doc(userId).update({
+                status: USER_STATUS.ACTIVE,
+                lastModified: firebase.firestore.FieldValue.serverTimestamp(),
+                modifiedBy: auth.currentUser.uid
+            })
+            .then(() => {
+                showSyncBanner('Usuário ativado com sucesso', 'success');
+                loadUsers();
+            })
+            .catch(error => {
+                console.error('Erro ao ativar usuário:', error);
+                alert('Erro ao ativar usuário: ' + error.message);
+            });
+        }
+        
+        function suspendUser(userId) {
+            // Verifica se é o administrador principal
+            db.collection('users').doc(userId).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const user = doc.data();
+                        
+                        if (user.email === ADMIN_EMAIL) {
+                            alert('Não é possível suspender o administrador principal.');
+                            return;
+                        }
+                        
+                        return db.collection('users').doc(userId).update({
+                            status: USER_STATUS.SUSPENDED,
+                            lastModified: firebase.firestore.FieldValue.serverTimestamp(),
+                            modifiedBy: auth.currentUser.uid
+                        });
+                    }
+                })
+                .then(() => {
+                    showSyncBanner('Usuário suspenso com sucesso', 'success');
+                    loadUsers();
+                })
+                .catch(error => {
+                    console.error('Erro ao suspender usuário:', error);
+                    alert('Erro ao suspender usuário: ' + error.message);
+                });
+        }<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM AQUALIFE</title>
+    <style>
+        /* Estilos gerais */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Navegação lateral */
+        .sidebar {
+            width: 250px;
+            background-color: #0d4a8f;
+            color: white;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .nav-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            transition: background-color 0.2s;
+        }
+        
+        .nav-item:hover {
+            background-color: #0c3d77;
+        }
+        
+        .nav-item.active {
+            background-color: #1565c0;
+        }
+        
+        /* Conteúdo principal */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            color: #0d4a8f;
+            margin-bottom: 20px;
+        }
+        
+        h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        /* Dashboard */
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-card.blue {
+            border-top: 4px solid #1565c0;
+        }
+        
+        .stat-card.green {
+            border-top: 4px solid #2e7d32;
+        }
+        
+        .stat-card.purple {
+            border-top: 4px solid #6a1b9a;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        /* Tabelas */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        /* Clientes */
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 15px 12px 40px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+        }
+        
+        .clients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .client-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .client-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .client-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .client-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .client-subtitle {
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .client-tag {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .client-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .client-date {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .client-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Botões */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #1565c0;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0d4a8f;
+        }
+        
+        .btn-success {
+            background-color: #2e7d32;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #1b5e20;
+        }
+        
+        .btn-icon {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background-color: #f5f5f5;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .btn-icon:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .btn-phone {
+            color: #2e7d32;
+        }
+        
+        .btn-email {
+            color: #1565c0;
+        }
+        
+        /* Detalhes do Cliente */
+        .client-details {
+            display: none;
+        }
+        
+        .client-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .client-info-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+        
+        .info-label {
+            width: 130px;
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .contact-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .contact-item {
+            display: inline-flex;
+            align-items: center;
+            background-color: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .contact-item:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .contact-item.phone-item {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .contact-item.email-item {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .note-item {
+            padding: 15px;
+            border-left: 4px solid #1565c0;
+            background-color: #f5f5f5;
+            margin-bottom: 15px;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .note-meta {
+            display: flex;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .note-date {
+            margin-right: 15px;
+        }
+        
+        /* Configurações */
+        .settings-section {
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .profile-upload {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .profile-image {
+            width: 100px;
+            height: 100px;
+            background-color: #f5f5f5;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            color: #666;
+            font-size: 40px;
+        }
+        
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                padding: 10px;
+            }
+            
+            .logo {
+                margin-bottom: 10px;
+            }
+            
+            .dashboard-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .client-info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .clients-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-form {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Ícones */
+        .icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        
+        .icon-sm {
+            font-size: 16px;
+            margin-right: 8px;
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal {
+            background-color: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .modal-close {
+            background-color: transparent;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #555;
+        }
+        
+        .modal-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .form-group-full {
+            grid-column: span 2;
+        }
+        
+        .modal-footer {
+            margin-top: 20px;
+            text-align: right;
+        }
+        
+        /* Calendário */
+        .calendar-container {
+            margin-bottom: 30px;
+        }
+        
+        .calendar-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        
+        .calendar-day-name {
+            text-align: center;
+            font-weight: bold;
+            padding: 10px;
+        }
+        
+        .calendar-day {
+            height: 100px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 5px;
+            position: relative;
+        }
+        
+        .day-number {
+            text-align: right;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .day-event {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-bottom: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .today {
+            background-color: #e3f2fd;
+            border: 2px solid #1565c0;
+        }
+        
+        /* Imports/Exports */
+        .import-export-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        /* Abas */
+        .tab-hidden {
+            display: none;
+        }
+
+        /* Alertas */
+        .alert {
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* Sincronização */
+        .sync-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: #28a745;
+            color: white;
+            text-align: center;
+            padding: 5px;
+            font-weight: bold;
+            z-index: 1000;
+            transition: all 0.3s;
+            transform: translateY(-100%);
+        }
+        
+        .sync-banner.active {
+            transform: translateY(0);
+        }
+        
+        .sync-banner.error {
+            background-color: #dc3545;
+        }
+        
+        .sync-banner.syncing {
+            background-color: #007bff;
+        }
+        
+        .sync-status {
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .sync-status.online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .sync-status.offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* Login Form */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+        }
+        
+        .login-form {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        .login-logo {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #0d4a8f;
+        }
+        
+        .login-input {
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #1565c0;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .login-btn:hover {
+            background-color: #0d4a8f;
+        }
+        
+        .login-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .register-link {
+            color: #1565c0;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        /* Admin Panel */
+        .admin-panel {
+            margin-top: 20px;
+        }
+
+        .admin-panel h3 {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .user-list {
+            margin-bottom: 30px;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .user-item:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: bold;
+        }
+
+        .user-email {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .user-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-suspended {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sync Status Banner -->
+    <div class="sync-banner" id="sync-banner">Sincronização completa</div>
+
+    <!-- Login Form (inicialmente oculto) -->
+    <div class="login-container" id="login-container" style="display: none;">
+        <div class="login-form">
+            <div class="login-logo">CRM AQUALIFE</div>
+            <div id="login-error" style="color: #dc3545; margin-bottom: 15px; display: none;"></div>
+            <input type="email" class="login-input" id="login-email" placeholder="Email">
+            <input type="password" class="login-input" id="login-password" placeholder="Senha">
+            <button class="login-btn" onclick="loginUser()">Entrar</button>
+            <div class="login-footer">
+                Não tem uma conta? <a href="#" class="register-link" onclick="showRegisterForm()">Registrar</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Form (inicialmente oculto) -->
+    <div class="login-container" id="register-container" style="display: none;">
+        <div class="login-form">
+            <div class="login-logo">CRM AQUALIFE</div>
+            <div id="register-error" style="color: #dc3545; margin-bottom: 15px; display: none;"></div>
+            <input type="text" class="login-input" id="register-name" placeholder="Nome">
+            <input type="email" class="login-input" id="register-email" placeholder="Email">
+            <input type="password" class="login-input" id="register-password" placeholder="Senha">
+            <input type="password" class="login-input" id="register-password-confirm" placeholder="Confirmar Senha">
+            <button class="login-btn" onclick="registerUser()">Registrar</button>
+            <div class="login-footer">
+                Já tem uma conta? <a href="#" class="register-link" onclick="showLoginForm()">Entrar</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="main-container" style="display: none;">
+        <!-- Navegação lateral -->
+        <div class="sidebar">
+            <div class="logo">CRM AQUALIFE</div>
+            <div class="nav-item active" id="nav-dashboard" onclick="showTab('dashboard')">
+                <span class="icon">📊</span> Painel de Controle
+            </div>
+            <div class="nav-item" id="nav-clients" onclick="showTab('clients')">
+                <span class="icon">👥</span> Clientes
+            </div>
+            <div class="nav-item" id="nav-calendar" onclick="showTab('calendar')">
+                <span class="icon">📅</span> Calendário
+            </div>
+            <div class="nav-item" id="nav-settings" onclick="showTab('settings')">
+                <span class="icon">⚙️</span> Configurações
+            </div>
+            <div class="nav-item" id="nav-admin" onclick="showTab('admin')" style="display: none;">
+                <span class="icon">🔐</span> Administração
+            </div>
+            <div class="sync-status" id="sync-status">
+                <span id="connection-icon" style="margin-right: 10px;">🔄</span>
+                <span id="connection-text">Verificando conexão...</span>
+            </div>
+            <div style="margin-top: auto; padding: 15px;">
+                <button class="btn" style="width: 100%;" onclick="logoutUser()">
+                    <span class="icon-sm">🚪</span> Sair
+                </button>
+            </div>
+        </div>
+        
+        <!-- Conteúdo principal -->
+        <div class="main-content">
+            <!-- Dashboard -->
+            <div id="dashboard-tab">
+                <div class="header">
+                    <h1>Painel de Controle</h1>
+                </div>
+                
+                <div class="dashboard-stats">
+                    <div class="stat-card blue">
+                        <div class="stat-label">Próximos Contatos</div>
+                        <div class="stat-value" id="upcoming-contacts-count">0</div>
+                        <div class="stat-label">para esta semana</div>
+                    </div>
+                    
+                    <div class="stat-card green">
+                        <div class="stat-label">Clientes Ativos</div>
+                        <div class="stat-value" id="total-clients">0</div>
+                        <div class="stat-label">atualizado hoje</div>
+                    </div>
+                    
+                    <div class="stat-card purple">
+                        <div class="stat-label">Contatos Recentes</div>
+                        <div class="stat-value" id="recent-contacts-count">0</div>
+                        <div class="stat-label">nos últimos 7 dias</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Próximos Follow-ups</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Data</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="followup-table">
+                            <!-- Preenchido via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Clientes -->
+            <div id="clients-tab" class="tab-hidden">
+                <div class="header">
+                    <h1>Clientes</h1>
+                    <button class="btn btn-primary" onclick="showAddClientModal()">
+                        <span class="icon-sm">➕</span> Novo Cliente
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="search-container">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="client-search" 
+                               placeholder="Pesquisar por nome, localidade, insígnia..." 
+                               oninput="filterClients()">
+                    </div>
+                </div>
+                
+                <div class="clients-grid" id="clients-grid">
+                    <!-- Preenchido via JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Detalhes do Cliente -->
+            <div id="client-details-tab" class="tab-hidden">
+                <div class="header">
+                    <button class="btn" onclick="showTab('clients')">
+                        ← Voltar
+                    </button>
+                    <h1 id="client-detail-title">Detalhes do Cliente</h1>
+                </div>
+                
+                <div class="card">
+                    <div class="client-header">
+                        <div>
+                            <h2 id="client-detail-name"></h2>
+                            <div id="client-detail-subtitle" class="client-subtitle"></div>
+                        </div>
+                        <button class="btn btn-primary" onclick="showEditClientModal()">
+                            <span class="icon-sm">✏️</span> Editar
+                        </button>
+                    </div>
+                    
+                    <div class="client-info-grid">
+                        <div class="client-info-section">
+                            <h3>Informações Gerais</h3>
+                            <div class="info-row">
+                                <div class="info-label">Setor:</div>
+                                <div id="client-detail-setor"></div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Endereço:</div>
+                                <div id="client-detail-endereco"></div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Localidade:</div>
+                                <div id="client-detail-localidade"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="client-info-section">
+                            <h3>Contatos</h3>
+                            <div class="info-row">
+                                <div class="info-label">Responsável:</div>
+                                <div id="client-detail-responsavel"></div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Gerente:</div>
+                                <div id="client-detail-gerente"></div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Resp. Frescos:</div>
+                                <div id="client-detail-resp-frescos"></div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Resp. Manutenção:</div>
+                                <div id="client-detail-resp-manutencao"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3>Telefones</h3>
+                        <div id="client-detail-telefones" class="contact-items"></div>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <h3>E-mails</h3>
+                        <div id="client-detail-emails" class="contact-items"></div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="header" style="margin-bottom: 10px;">
+                        <h2>Histórico de Contatos</h2>
+                        <button class="btn btn-primary" onclick="showAddNoteModal()">
+                            <span class="icon-sm">➕</span> Novo Contato
+                        </button>
+                    </div>
+                    
+                    <div id="client-notes-container">
+                        <!-- Preenchido via JavaScript -->
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <h3>Próximo Contato</h3>
+                        <div style="display: flex; align-items: center;">
+                            <div class="contact-item">
+                                <span class="icon-sm">📅</span>
+                                <span id="client-next-contact"></span>
+                            </div>
+                            <button class="btn" style="margin-left: 10px;" onclick="showSetNextContactModal()">
+                                <span class="icon-sm">✏️</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Calendário -->
+            <div id="calendar-tab" class="tab-hidden">
+                <div class="header">
+                    <h1>Calendário de Contatos</h1>
+                </div>
+                
+                <div class="card">
+                    <div class="calendar-header">
+                        <h2>Maio 2025</h2>
+                    </div>
+                    
+                    <div class="calendar-grid" id="calendar-grid">
+                        <div class="calendar-day-name">Dom</div>
+                        <div class="calendar-day-name">Seg</div>
+                        <div class="calendar-day-name">Ter</div>
+                        <div class="calendar-day-name">Qua</div>
+                        <div class="calendar-day-name">Qui</div>
+                        <div class="calendar-day-name">Sex</div>
+                        <div class="calendar-day-name">Sab</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Próximos Contatos</h2>
+                    <div id="upcoming-contacts">
+                        <!-- Preenchido via JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Configurações -->
+            <div id="settings-tab" class="tab-hidden">
+                <div class="header">
+                    <h1>Configurações</h1>
+                </div>
+                
+                <div class="card">
+                    <h2>Perfil do Utilizador</h2>
+                    
+                    <div class="profile-upload">
+                        <div class="profile-image" id="user-avatar">
+                            👤
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="document.getElementById('avatar-upload').click()">
+                                <span class="icon-sm">📤</span> Carregar Logotipo
+                            </button>
+                            <input type="file" id="avatar-upload" style="display: none;" accept="image/*" onchange="handleAvatarUpload(this)">
+                            <p style="font-size: 14px; color: #666; margin-top: 5px;">
+                                Formatos suportados: JPG, PNG (max 2MB)
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-form">
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group">
+                                <label for="settings-name">Nome</label>
+                                <input type="text" id="settings-name" value="Utilizador AQUALIFE">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="settings-email">E-mail</label>
+                                <input type="email" id="settings-email" disabled>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="settings-phone">Telefone</label>
+                                <input type="tel" id="settings-phone" value="+351 912345678">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="settings-role">Cargo</label>
+                                <input type="text" id="settings-role" value="Gestor de Vendas">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="settings-address">Morada</label>
+                            <input type="text" id="settings-address" value="Rua do Comércio, 45, Lisboa">
+                        </div>
+                        
+                        <div style="text-align: right; margin-top: 20px;">
+                            <button class="btn btn-primary" onclick="saveSettings()">
+                                <span class="icon-sm">💾</span> Guardar Alterações
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Alterar Senha</h2>
+                    <div class="form-group">
+                        <label for="settings-current-password">Senha Atual</label>
+                        <input type="password" id="settings-current-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="settings-new-password">Nova Senha</label>
+                        <input type="password" id="settings-new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="settings-confirm-password">Confirmar Nova Senha</label>
+                        <input type="password" id="settings-confirm-password">
+                    </div>
+                    <div style="text-align: right; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="changePassword()">
+                            <span class="icon-sm">🔒</span> Alterar Senha
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Importar/Exportar Dados</h2>
+                    
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="margin-bottom: 10px;">Importar Dados</h3>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                            Importe dados de clientes a partir de um ficheiro Excel (.xlsx, .xls)
+                        </p>
+                        <button class="btn btn-success" onclick="document.getElementById('file-upload').click()">
+                            <span class="icon-sm">📤</span> Importar Ficheiro Excel
+                        </button>
+                        <input type="file" id="file-upload" style="display: none;" accept=".xlsx, .xls, .csv" onchange="handleFileImport(this)">
+                    </div>
+                    
+                    <div class="import-export-section">
+                        <h3 style="margin-bottom: 10px;">Exportar Dados</h3>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                            Exporte todos os dados de clientes para um ficheiro Excel
+                        </p>
+                        <button class="btn btn-primary" onclick="exportToExcel()">
+                            <span class="icon-sm">📋</span> Exportar para Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Admin Panel -->
+            <div id="admin-tab" class="tab-hidden">
+                <div class="header">
+                    <h1>Painel de Administração</h1>
+                    <button class="btn btn-primary" onclick="showAddUserModal()">
+                        <span class="icon-sm">➕</span> Adicionar Usuário
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <h2>Gerenciar Usuários</h2>
+                    <div id="user-list" class="user-list">
+                        <!-- Preenchido via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modais -->
+    <!-- Modal Adicionar Cliente -->
+    <div class="modal-overlay" id="add-client-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Adicionar Novo Cliente</div>
+                <button class="modal-close" onclick="hideModal('add-client-modal')">&times;</button>
+            </div>
+            
+            <div class="modal-form">
+                <div class="form-group">
+                    <label for="client-grupo">Grupo</label>
+                    <input type="text" id="client-grupo" placeholder="Nome do grupo">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-insignia">Insígnia</label>
+                    <input type="text" id="client-insignia" placeholder="Insígnia">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-empresa">Empresa</label>
+                    <input type="text" id="client-empresa" placeholder="Nome da empresa">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-setor">Setor</label>
+                    <select id="client-setor">
+                        <option value="">Selecione o setor</option>
+                        <option value="Supermercados">Supermercados</option>
+                        <option value="Pequenos Supermercados">Pequenos Supermercados</option>
+                        <option value="Peixarias">Peixarias</option>
+                        <option value="Talhos">Talhos</option>
+                        <option value="Fruterias">Fruterias</option>
+                        <option value="Mercearias">Mercearias</option>
+                        <option value="Restaurantes">Restaurantes</option>
+                        <option value="Marisqueiras">Marisqueiras</option>
+                        <option value="Mercados">Mercados</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-responsavel">Responsável</label>
+                    <input type="text" id="client-responsavel" placeholder="Nome do responsável">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-gerente">Gerente</label>
+                    <input type="text" id="client-gerente" placeholder="Nome do gerente">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-resp-frescos">Resp. Frescos</label>
+                    <input type="text" id="client-resp-frescos" placeholder="Nome do responsável de frescos">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-resp-manutencao">Resp. Manutenção</label>
+                    <input type="text" id="client-resp-manutencao" placeholder="Nome do responsável de manutenção">
+                </div>
+                
+                <div class="form-group form-group-full">
+                    <label for="client-endereco">Endereço</label>
+                    <input type="text" id="client-endereco" placeholder="Endereço completo">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-localidade">Localidade</label>
+                    <input type="text" id="client-localidade" placeholder="Localidade">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-telefone">Telefone Principal</label>
+                    <input type="tel" id="client-telefone" placeholder="+351 xxxxxxxxx">
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-email">Email Principal</label>
+                    <input type="email" id="client-email" placeholder="email@exemplo.pt">
+                </div>
+                
+                <div class="form-group form-group-full modal-footer">
+                    <button class="btn btn-primary" onclick="addNewClient()">
+                        <span class="icon-sm">➕</span> Adicionar Cliente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Adicionar Nota -->
+    <div class="modal-overlay" id="add-note-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Adicionar Novo Contato</div>
+                <button class="modal-close" onclick="hideModal('add-note-modal')">&times;</button>
+            </div>
+            
+            <div class="modal-form">
+                <div class="form-group form-group-full">
+                    <label for="note-date">Data</label>
+                    <input type="date" id="note-date">
+                </div>
+                
+                <div class="form-group form-group-full">
+                    <label for="note-time">Hora</label>
+                    <input type="time" id="note-time">
+                </div>
+                
+                <div class="form-group form-group-full">
+                    <label for="note-text">Detalhes do Contato</label>
+                    <textarea id="note-text" rows="4" placeholder="Descreva os detalhes do contato..."></textarea>
+                </div>
+                
+                <div class="form-group form-group-full">
+                    <label>Agendar Próximo Contato</label>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="btn" onclick="setNextContact(7)">1 Semana</button>
+                        <button class="btn" onclick="setNextContact(15)">15 Dias</button>
+                        <button class="btn" onclick="setNextContact(30)">1 Mês</button>
+                        <button class="btn" onclick="showDatePicker()">Data Específica</button>
+                    </div>
+                </div>
+                
+                <div id="date-picker-container" class="form-group form-group-full" style="display: none;">
+                    <label for="next-contact-date">Data do Próximo Contato</label>
+                    <input type="date" id="next-contact-date">
+                </div>
+                
+                <div class="form-group form-group-full modal-footer">
+                    <button class="btn btn-primary" onclick="addNewNote()">
+                        <span class="icon-sm">💾</span> Salvar Contato
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Adicionar Usuário -->
+    <div class="modal-overlay" id="add-user-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Adicionar Novo Usuário</div>
+                <button class="modal-close" onclick="hideModal('add-user-modal')">&times;</button>
+            </div>
+            
+            <div class="modal-form">
+                <div class="form-group">
+                    <label for="new-user-name">Nome</label>
+                    <input type="text" id="new-user-name" placeholder="Nome completo">
+                </div>
+                
+                <div class="form-group">
+                    <label for="new-user-email">E-mail</label>
+                    <input type="email" id="new-user-email" placeholder="email@exemplo.pt">
+                </div>
+                
+                <div class="form-group">
+                    <label for="new-user-password">Senha Temporária</label>
+                    <input type="password" id="new-user-password" placeholder="Senha">
+                </div>
+                
+                <div class="form-group">
+                    <label for="new-user-role">Nível de Acesso</label>
+                    <select id="new-user-role">
+                        <option value="user">Usuário</option>
+                        <option value="manager">Gerente</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                
+                <div class="form-group form-group-full modal-footer">
+                    <button class="btn btn-primary" onclick="addNewUser()">
+                        <span class="icon-sm">➕</span> Adicionar Usuário
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Editar Usuário -->
+    <div class="modal-overlay" id="edit-user-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Editar Usuário</div>
+                <button class="modal-close" onclick="hideModal('edit-user-modal')">&times;</button>
+            </div>
+            
+            <div class="modal-form">
+                <input type="hidden" id="edit-user-id">
+                
+                <div class="form-group">
+                    <label for="edit-user-name">Nome</label>
+                    <input type="text" id="edit-user-name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-user-email">E-mail</label>
+                    <input type="email" id="edit-user-email" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-user-role">Nível de Acesso</label>
+                    <select id="edit-user-role">
+                        <option value="user">Usuário</option>
+                        <option value="manager">Gerente</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-user-status">Status</label>
+                    <select id="edit-user-status">
+                        <option value="pending">Pendente</option>
+                        <option value="active">Ativo</option>
+                        <option value="suspended">Suspenso</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-user-password">Nova Senha (opcional)</label>
+                    <input type="password" id="edit-user-password" placeholder="Deixe em branco para manter a senha atual">
+                </div>
+                
+                <div class="form-group form-group-full modal-footer">
+                    <button class="btn btn-primary" onclick="updateUser()">
+                        <span class="icon-sm">💾</span> Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database-compat.js"></script>
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1Xx4K5mj_bKVCQyQPOJcKVhXTk9yA2dQ",
+            authDomain: "crm-aqualife.firebaseapp.com",
+            projectId: "crm-aqualife",
+            storageBucket: "crm-aqualife.appspot.com",
+            messagingSenderId: "758941524783",
+            appId: "1:758941524783:web:67e9b2c3b79c87a32ce93a"
+        };
+        
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // Configuração do administrador principal
+        const ADMIN_EMAIL = "temas.pacificos.lda@gmail.com";
+        
+        // Status de usuário
+        const USER_STATUS = {
+            PENDING: 'pending',
+            ACTIVE: 'active',
+            SUSPENDED: 'suspended'
+        };
+        
+        // Níveis de acesso
+        const USER_ROLES = {
+            ADMIN: 'admin',
+            MANAGER: 'manager',
+            USER: 'user'
+        };
